@@ -190,6 +190,31 @@ int sp_voc_get_nose_size(sp_voc *voc)
     return voc->tr.nose_length;
 }
 
+static void tract_constrict_at_position(tract *tr,
+    SPFLOAT index, SPFLOAT diameter, SPFLOAT width)
+{
+    if (index >= tr->throat_start && index < tr->n && diameter < 3)
+    {
+        int i;
+        int int_index = round(index);
+        for (i = int_index-ceil(width)-1; i < int_index+width+1; i++)
+        {
+            if (i >= 0 && i < tr->n)
+            {
+                SPFLOAT relpos = fabs(i - index)-0.5;
+                SPFLOAT shrink;
+                if (relpos <= 0) shrink = 0;
+                else if (relpos > width) shrink = 1;
+                else shrink = 0.5*(1-cos(M_PI * relpos / width));
+                if (diameter < tr->target_diameter[i])
+                {
+                    tr->target_diameter[i] = lerp(diameter, tr->target_diameter[i], shrink);
+                }
+            }
+        }
+    }
+}
+
 @ The function |sp_voc_set_diameter()| is a function adopted from Neil Thapen's
 Pink Trombone in a function he called setRestDiameter. It is the main function
 in charge of the "tongue position" XY control. Modifications to the original
@@ -212,13 +237,15 @@ For practical use cases, it is not ideal to call this function directly.
 Instead, it can be indirectly called using a more sane function 
 |sp_voc_set_tongue_shape()|, found in the section |@<Voc Set Tongue Shape@>|.
 
+/* TODO: remove blade_start, lip_start, tip_start */
 @<Voc Set Diameters@>=
 void sp_voc_set_diameters(sp_voc *voc, @/
     int blade_start, @/
     int lip_start, @/
     int tip_start, @/
-    SPFLOAT tongue_index,@/
-    SPFLOAT tongue_diameter, @/
+    sp_voc_tract_position tongue_position, @/
+    sp_voc_tract_position *constrictions, @/
+    int num_constrictions, @/
     SPFLOAT *diameters) {
 
     int i;
@@ -226,15 +253,30 @@ void sp_voc_set_diameters(sp_voc *voc, @/
     SPFLOAT fixed_tongue_diameter;
     SPFLOAT curve;
     SPFLOAT grid_offset = 1.7;
+    int oral_start = voc->tr.oral_start;
 
+    for(i = 0; i < blade_start; i++) {
+        diameters[i] = voc->tr.rest_diameter[i];
+    }
     for(i = blade_start; i < lip_start; i++) {
         t = 1.1 * M_PI * 
-            (SPFLOAT)(tongue_index - i)/(tip_start - blade_start);
-        fixed_tongue_diameter = 2+(tongue_diameter-2)/1.5;
+            (SPFLOAT)(tongue_position.index - i)/(tip_start - blade_start);
+        fixed_tongue_diameter = 2+(tongue_position.diameter-2)/1.5;
         curve = (1.5 - fixed_tongue_diameter + grid_offset) * cos(t);
         if(i == blade_start - 2 || i == lip_start - 1) curve *= 0.8;
         if(i == blade_start || i == lip_start - 2) curve *= 0.94;
         diameters[i] = 1.5 - curve;
+    }
+    for(i = lip_start; i < 44; i++) {
+        diameters[i] = voc->tr.rest_diameter[i];
+    }
+
+    // apply active constrictions
+    for (i = 0; i < num_constrictions; ++i) {
+        sp_voc_tract_position const* position = &constrictions[i];
+        SPFLOAT width_t = clamp((position->index - oral_start)/(tip_start - oral_start), 0, 1);
+        SPFLOAT width = lerp(10, 5, width_t);
+        tract_constrict_at_position(&(voc->tr), position->index, position->diameter, width);
     }
 }
 
@@ -258,9 +300,13 @@ void sp_voc_set_tongue_shape(sp_voc *voc,
     SPFLOAT tongue_index, @/
     SPFLOAT tongue_diameter) {
     SPFLOAT *diameters;
+    sp_voc_tract_position tongue_position;
+    tongue_position.index = tongue_index;
+    tongue_position.diameter = tongue_diameter;
     diameters = sp_voc_get_tract_diameters(voc);
-    sp_voc_set_diameters(voc, 10, 39, 32, 
-            tongue_index, tongue_diameter, diameters);
+    /* TODO: named constants for 10, 39 */
+    sp_voc_set_diameters(voc, 10, 39, voc->tr.tip_start,
+            tongue_position, 0, 0, diameters);
 }
 
 @ Voc keeps an internal counter for control rate operations called inside

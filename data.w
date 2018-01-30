@@ -183,6 +183,8 @@ typedef struct {
 @t n=44, it should be 28.@>@/
     int nose_start; @t \indent $n - nose\_length + 1$, or 17 @>@/
 @t tip\_start is a constant set to 32 @>@/
+    int throat_start;
+    int oral_start;
     int tip_start;
     SPFLOAT @, noseL[28];
     SPFLOAT @, noseR[28];
@@ -229,4 +231,14 @@ static SPFLOAT move_towards(SPFLOAT current, SPFLOAT target,
         tmp = current - amt_down;
         return MAX(tmp, target);
     }
+}
+
+static SPFLOAT clamp(SPFLOAT x, SPFLOAT min, SPFLOAT max)
+{
+    return x < min ? min : (x > max ? max : x);
+}
+
+static SPFLOAT lerp(SPFLOAT x0, SPFLOAT x1, SPFLOAT t)
+{
+    return x0 * (1 - t) + x1 * t;
 }

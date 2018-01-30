@@ -23,6 +23,11 @@ to declare setter/getter functions for any user parameters.
 #define SP_VOC
 typedef struct sp_voc sp_voc;
 
+typedef struct {
+    SPFLOAT index;
+    SPFLOAT diameter;
+} sp_voc_tract_position;
+
 int sp_voc_create(sp_voc **voc);
 int sp_voc_destroy(sp_voc **voc);
 int sp_voc_init(sp_data *sp, sp_voc *voc);
@@ -50,8 +55,9 @@ void sp_voc_set_diameters(sp_voc *voc,
     int blade_start,
     int lip_start,
     int tip_start,
-    SPFLOAT tongue_index,
-    SPFLOAT tongue_diameter,
+    sp_voc_tract_position tongue_position,
+    sp_voc_tract_position *constrictions,
+    int num_constrictions,
     SPFLOAT *diameters);
 
 int sp_voc_get_counter(sp_voc *voc);

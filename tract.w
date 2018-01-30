@@ -56,6 +56,8 @@ tr->last_obstruction = -1;
 tr->movement_speed = 15;
 tr->lip_output = 0;
 tr->nose_output = 0;
+tr->throat_start = 2;
+tr->oral_start = 25;
 tr->tip_start = 32;
 
 @ Several floating-point arrays are needed for the scattering junctions. 
